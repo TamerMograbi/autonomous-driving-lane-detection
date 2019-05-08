@@ -5,25 +5,15 @@ outputVideo = VideoWriter(fullfile(pwd,'output'));
 outputVideo.FrameRate = v.FrameRate;
 open(outputVideo);
 lastGoodPatch = [];
-count = 520;
-i = 0;
+
 while hasFrame(v)
-    b = readFrame(v); % read first frame
-%     if i < count
-%         i = i + 1;
-%         continue;
-%     end
+    b = readFrame(v); 
     hsvImage = rgb2hsv(b);
     yellowBinary = detectColor(hsvImage,'yellow');
     whiteBinary = detectColor(hsvImage,'white');
     binaryImg = yellowBinary | whiteBinary;
     deNoisedBinaryImg = medfilt2(binaryImg);
-    %binaryImg = whiteBinary;
-    
-   
-    %deNoisedB = medfilt2(rgb2gray(b)); % denoise image
-    
-    %edgesIm= edge(deNoisedB,'sobel'); % show edges
+
     edgesIm = edge(deNoisedBinaryImg,'sobel');
     
     [h,w,~] = size(edgesIm);
@@ -56,26 +46,22 @@ while hasFrame(v)
             edgesIm(i, j) = 0;
         end
     end
-    
-
-    %imshowpair(b, edgesIm, 'montage');
 
     [H,theta,rho] = hough(edgesIm);
     P = houghpeaks(H,5,'threshold',ceil(0.3*max(H(:))));
     lines = houghlines(edgesIm,theta,rho,P,'FillGap',5,'MinLength',4);
     
-    
     patchCoords = [];
     addedNegTheta = false;
     addedPosTheta = false;
     max_len = 0;
-    
-    %figure, imshow(edgesIm), hold on
-    
+
     for k = 1:length(lines)
+        %if already found a line for right and left lane then stop
        if addedNegTheta == true && addedPosTheta == true
            break;
        end
+       %don't add more than one line on the either the left or right lanes.
        if (addedNegTheta == true && lines(k).theta < 0) || (addedPosTheta == true && lines(k).theta > 0)
            continue;
        end
@@ -85,70 +71,44 @@ while hasFrame(v)
        topXcoord = (lines(k).rho - (h/1.5)*sind(lines(k).theta))/cosd(lines(k).theta);
        %find the x coord of the line at the bottom of the screen (y = h)
        bottomXCoord = (lines(k).rho - h*sind(lines(k).theta))/cosd(lines(k).theta);
-       %extended_p2 = lines(k).point2+ray*factor_dist;
-       %xy = [lines(k).point1; extended_p2];
+
        xy = [bottomXCoord, h; topXcoord,h/1.5 ];
        
-       
+       %line belongs to right lane
        if lines(k).theta < 0
            patchCoords = [ patchCoords [topXcoord,bottomXCoord;(h/1.5),h]];
-           %factor_dist = 10;
            addedNegTheta = true;
-           color = 'green';
-           
+       %line belongs to left lane
        else
            patchCoords = [ patchCoords [bottomXCoord,topXcoord;h,(h/1.5)]];
            addedPosTheta = true;
-           color = 'red';
        end
-       plot(xy(:,1),xy(:,2),'LineWidth',2,'Color',color);
-
-       % Plot beginnings and ends of lines
-       %plot(xy(1,1),xy(1,2),'x','LineWidth',2,'Color','yellow');
-       %plot(xy(2,1),xy(2,2),'x','LineWidth',2,'Color','red');
-
-
     end
-    %figure,imshow(b), hold on;
-    
-%     p1 = patch(patchCoords(1,:),patchCoords(2,:),'red')
-%     p1.FaceVertexAlphaData = 0.2;    % Set constant transparency 
-%     p1.FaceAlpha = 'flat' ;          % Interpolate to find face transparency
-    
-    %disp(patchCoords);
-    pos_hexagon = [340 163 305 186 303 257 334 294 362 255 361 191];
+
     [m,n] = size(patchCoords);
+    %if for some reason couldn't find 2 lines for current frame
+    %use last frame. (happens rarely)
     if m ~= 2 || n ~= 4
-        %disp(lastGoodPatch);
         bWithShape = insertShape(b,'FilledPolygon',{lastGoodPatch},...
         'Color', {'green'},'Opacity',0.7);
-        %imshow(bWithShape)
         writeVideo(outputVideo,bWithShape);
         continue;
     end
     pos_patch = [patchCoords(1,1) patchCoords(2,1) patchCoords(1,2) patchCoords(2,2) patchCoords(1,3) patchCoords(2,3) patchCoords(1,4) patchCoords(2,4) ];
     lastGoodPatch = pos_patch;
-    disp("last good patch");
-    disp(lastGoodPatch);
     bWithShape = insertShape(b,'FilledPolygon',{pos_patch},...
     'Color', {'green'},'Opacity',0.7);
-    %imshow(bWithShape);
+
     writeVideo(outputVideo,bWithShape);
-    %imshow(bWithShape)
-    % highlight the longest line segment
-   % plot(xy_long(:,1),xy_long(:,2),'LineWidth',2,'Color','red');
-     
-    %imshow(edgesIm) % display image
-%     bWithShape = insertShape(b,'FilledPolygon',{[patchCoords(1,1),patchCoords(2,1),patchCoords(2,1),patchCoords(2,2)]},...
-%     'Color', {'white','red'},'Opacity',0.7);
-%     imshow(bWithShape);
-%     writeVideo(outputVideo,bWithShape)
 end
 close(outputVideo);
 
+%input: I - img in HSV color space. color - string, 'white' for white color
+%any other string will be considered a yellow color
+%output:binary image showing only the color color.
 function  img = detectColor(I,color)
 
-    % yellow color ranges
+    % yellow color hsv ranges
     hueThresholdLow = 0.10;
     hueThresholdHigh = 0.14;
     saturationThresholdLow = 0.4;
@@ -156,7 +116,7 @@ function  img = detectColor(I,color)
     valueThresholdLow = 0.8;
     valueThresholdHigh = 1.0;
   if strcmp(color,'white') == true
-% white color ranges
+% white color hsv ranges (took a bit of trial and error
         hueThresholdLow = 0.0;
         hueThresholdHigh = 1;
         saturationThresholdLow = 0;
@@ -165,15 +125,15 @@ function  img = detectColor(I,color)
         valueThresholdHigh = 1.0;
   end
  
+    % returns a matrix where there are 1's at index i
+    %if in H,S,V channels at index i, the values are in their correspondant
+    %thresholds above
     mask = ( (I(:,:,1) >= hueThresholdLow) & (I(:,:,1) <= hueThresholdHigh) ) & ...
     ((I(:,:,2) >= saturationThresholdLow ) & (I(:,:,2) <= saturationThresholdHigh)) & ...
     ((I(:,:,3) >= valueThresholdLow ) & (I(:,:,3) <= valueThresholdHigh));
-%     img = I;
-%     img(~mask) = 0;
-%     img(mask) = 255;
-%     imshow(mask);
+
+
       img = mask;
-%     Im_ColorLayer = color_detection_by_hue(I); 
-%     imshow(Im_ColorLayer.yellow);
+
 end
 
