@@ -1,16 +1,30 @@
-
+clear;
 v=VideoReader('project_video.mp4');
 
 outputVideo = VideoWriter(fullfile(pwd,'output'));
 outputVideo.FrameRate = v.FrameRate;
 open(outputVideo);
-figure, hold on;
 lastGoodPatch = [];
+count = 520;
+i = 0;
 while hasFrame(v)
     b = readFrame(v); % read first frame
-    deNoisedB = medfilt2(rgb2gray(b)); % denoise image
+%     if i < count
+%         i = i + 1;
+%         continue;
+%     end
+    hsvImage = rgb2hsv(b);
+    yellowBinary = detectColor(hsvImage,'yellow');
+    whiteBinary = detectColor(hsvImage,'white');
+    binaryImg = yellowBinary | whiteBinary;
+    deNoisedBinaryImg = medfilt2(binaryImg);
+    %binaryImg = whiteBinary;
     
-    edgesIm= edge(deNoisedB,'sobel'); % show edges
+   
+    %deNoisedB = medfilt2(rgb2gray(b)); % denoise image
+    
+    %edgesIm= edge(deNoisedB,'sobel'); % show edges
+    edgesIm = edge(deNoisedBinaryImg,'sobel');
     
     [h,w,~] = size(edgesIm);
     for i = 1:(h/1.5)
@@ -43,16 +57,21 @@ while hasFrame(v)
         end
     end
     
+
+    %imshowpair(b, edgesIm, 'montage');
+
     [H,theta,rho] = hough(edgesIm);
     P = houghpeaks(H,5,'threshold',ceil(0.3*max(H(:))));
-    lines = houghlines(edgesIm,theta,rho,P,'FillGap',5,'MinLength',7);
+    lines = houghlines(edgesIm,theta,rho,P,'FillGap',5,'MinLength',4);
     
     
     patchCoords = [];
     addedNegTheta = false;
     addedPosTheta = false;
     max_len = 0;
- 
+    
+    %figure, imshow(edgesIm), hold on
+    
     for k = 1:length(lines)
        if addedNegTheta == true && addedPosTheta == true
            break;
@@ -60,8 +79,6 @@ while hasFrame(v)
        if (addedNegTheta == true && lines(k).theta < 0) || (addedPosTheta == true && lines(k).theta > 0)
            continue;
        end
-       ray = lines(k).point2 - lines(k).point1;
-       factor_dist = -10;
            
        %everything less than h/1.5 was blacked out.
        %here i found the x coord of the lines at height h/1.5
@@ -90,12 +107,7 @@ while hasFrame(v)
        %plot(xy(1,1),xy(1,2),'x','LineWidth',2,'Color','yellow');
        %plot(xy(2,1),xy(2,2),'x','LineWidth',2,'Color','red');
 
-       % Determine the endpoints of the longest line segment
-       len = norm(lines(k).point1 - lines(k).point2);
-       if ( len > max_len)
-          max_len = len;
-          xy_long = xy;
-       end
+
     end
     %figure,imshow(b), hold on;
     
@@ -103,6 +115,7 @@ while hasFrame(v)
 %     p1.FaceVertexAlphaData = 0.2;    % Set constant transparency 
 %     p1.FaceAlpha = 'flat' ;          % Interpolate to find face transparency
     
+    %disp(patchCoords);
     pos_hexagon = [340 163 305 186 303 257 334 294 362 255 361 191];
     [m,n] = size(patchCoords);
     if m ~= 2 || n ~= 4
@@ -111,7 +124,7 @@ while hasFrame(v)
         'Color', {'green'},'Opacity',0.7);
         %imshow(bWithShape)
         writeVideo(outputVideo,bWithShape);
-        continue
+        continue;
     end
     pos_patch = [patchCoords(1,1) patchCoords(2,1) patchCoords(1,2) patchCoords(2,2) patchCoords(1,3) patchCoords(2,3) patchCoords(1,4) patchCoords(2,4) ];
     lastGoodPatch = pos_patch;
@@ -119,6 +132,7 @@ while hasFrame(v)
     disp(lastGoodPatch);
     bWithShape = insertShape(b,'FilledPolygon',{pos_patch},...
     'Color', {'green'},'Opacity',0.7);
+    %imshow(bWithShape);
     writeVideo(outputVideo,bWithShape);
     %imshow(bWithShape)
     % highlight the longest line segment
@@ -131,4 +145,35 @@ while hasFrame(v)
 %     writeVideo(outputVideo,bWithShape)
 end
 close(outputVideo);
+
+function  img = detectColor(I,color)
+
+    % yellow color ranges
+    hueThresholdLow = 0.10;
+    hueThresholdHigh = 0.14;
+    saturationThresholdLow = 0.4;
+    saturationThresholdHigh = 1;
+    valueThresholdLow = 0.8;
+    valueThresholdHigh = 1.0;
+  if strcmp(color,'white') == true
+% white color ranges
+        hueThresholdLow = 0.0;
+        hueThresholdHigh = 1;
+        saturationThresholdLow = 0;
+        saturationThresholdHigh = 0.2;
+        valueThresholdLow = 0.8;
+        valueThresholdHigh = 1.0;
+  end
+ 
+    mask = ( (I(:,:,1) >= hueThresholdLow) & (I(:,:,1) <= hueThresholdHigh) ) & ...
+    ((I(:,:,2) >= saturationThresholdLow ) & (I(:,:,2) <= saturationThresholdHigh)) & ...
+    ((I(:,:,3) >= valueThresholdLow ) & (I(:,:,3) <= valueThresholdHigh));
+%     img = I;
+%     img(~mask) = 0;
+%     img(mask) = 255;
+%     imshow(mask);
+      img = mask;
+%     Im_ColorLayer = color_detection_by_hue(I); 
+%     imshow(Im_ColorLayer.yellow);
+end
 
