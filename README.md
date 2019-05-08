@@ -5,7 +5,6 @@ example of what current output looks like:
 
 ![alt text](https://raw.githubusercontent.com/TamerMograbi/autonomous-driving-lane-detection/master/detect_example.png)
 
-still needs work because in the video the trapezoid is jittery
 
 # On picking the right color space
 
