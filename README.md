@@ -1,7 +1,7 @@
 # autonomous-driving-lane-detection
 lane detection for autonomous driving car using haugh transforms
 
-example of what current output looks like:
+example of 1 frame from current output video:
 
 ![alt text](https://raw.githubusercontent.com/TamerMograbi/autonomous-driving-lane-detection/master/detect_example.png)
 
