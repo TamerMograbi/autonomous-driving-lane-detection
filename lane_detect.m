@@ -5,6 +5,8 @@ outputVideo = VideoWriter(fullfile(pwd,'output'));
 outputVideo.FrameRate = v.FrameRate;
 open(outputVideo);
 lastGoodPatch = [];
+lastCurveStr = '';
+threshold = 10;
 
 while hasFrame(v)
     b = readFrame(v); 
@@ -54,6 +56,8 @@ while hasFrame(v)
     patchCoords = [];
     addedNegTheta = false;
     addedPosTheta = false;
+    negThetaLine = lines(1); %random init
+    posThetaLine = lines(1); %random init
     max_len = 0;
 
     for k = 1:length(lines)
@@ -77,10 +81,12 @@ while hasFrame(v)
        %line belongs to right lane
        if lines(k).theta < 0
            patchCoords = [ patchCoords [topXcoord,bottomXCoord;(h/1.5),h]];
+           negThetaLine = lines(k);
            addedNegTheta = true;
        %line belongs to left lane
        else
            patchCoords = [ patchCoords [bottomXCoord,topXcoord;h,(h/1.5)]];
+           posThetaLine = lines(k);
            addedPosTheta = true;
        end
     end
@@ -91,6 +97,9 @@ while hasFrame(v)
     if m ~= 2 || n ~= 4
         bWithShape = insertShape(b,'FilledPolygon',{lastGoodPatch},...
         'Color', {'green'},'Opacity',0.7);
+        %add curve text to image
+        bWithShape = insertText(bWithShape,[30 30] ,lastCurveStr,'FontSize',18,'BoxColor',...
+        'red','BoxOpacity',0.4,'TextColor','white');
         writeVideo(outputVideo,bWithShape);
         continue;
     end
@@ -98,6 +107,13 @@ while hasFrame(v)
     lastGoodPatch = pos_patch;
     bWithShape = insertShape(b,'FilledPolygon',{pos_patch},...
     'Color', {'green'},'Opacity',0.7);
+    
+    %add curve text to image
+    if addedPosTheta && addedNegTheta
+        leftRightLineInters = getXIntersection(negThetaLine, posThetaLine);
+        intersectionXcoord = leftRightLineInters(1);
+        [bWithShape,lastCurveStr] = putCurveInfoInImage(intersectionXcoord,bWithShape,threshold,w);
+    end
 
     writeVideo(outputVideo,bWithShape);
 end
@@ -134,6 +150,34 @@ function  img = detectColor(I,color)
 
 
       img = mask;
+
+end
+
+% input: two lines in the form of r=xcos(theta)+ysin(theta)
+% negLine is for right lane. posLine is for left lane
+% output: interesection of both lines
+function intersection = getXIntersection(negLine, posLine)    
+    A = [cosd(negLine.theta),sind(negLine.theta) ; cosd(posLine.theta),sind(posLine.theta)];
+    B = [negLine.rho;posLine.rho];
+    intersection = linsolve(A,B);
+    
+end
+
+%input: x coord intersection of left & right lanes, image, threshold, width
+%w
+%output: [image with curve info text added to it,the text added]
+function [imageWithCurve,current_curve_str] = putCurveInfoInImage(intersectionXcoord,img,threshold,w)
+        curve_str = 'none';
+        if intersectionXcoord > threshold + w/2
+            curve_str = 'right';
+        end
+        if intersectionXcoord < w/2 - threshold
+            curve_str = 'left';
+        end
+        text_str = [ 'lanes intersect ' num2str(intersectionXcoord - w/2,'%0.2f') ' units away from center. curve=' curve_str];
+        current_curve_str = text_str;
+        imageWithCurve = insertText(img,[30 30] ,text_str,'FontSize',18,'BoxColor',...
+        'red','BoxOpacity',0.4,'TextColor','white');
 
 end
 
