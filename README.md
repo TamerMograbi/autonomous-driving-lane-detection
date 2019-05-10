@@ -5,11 +5,12 @@ example of 1 frame from current output video:
 
 ![alt text](https://raw.githubusercontent.com/TamerMograbi/autonomous-driving-lane-detection/master/detect_example.png)
 
-curves are detected by measuring the distance between the intersection point of left and right lanes and the center of the screen (horizontal center)
 
 # image with curve info
 
 ![alt text](https://raw.githubusercontent.com/TamerMograbi/autonomous-driving-lane-detection/master/imageWithCurve.png)
+
+curves are detected by measuring the distance between the intersection point of left and right lanes and the center of the screen (horizontal center)
 
 # On picking the right color space
 
