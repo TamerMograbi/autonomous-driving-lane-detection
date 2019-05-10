@@ -7,6 +7,7 @@ open(outputVideo);
 lastGoodPatch = [];
 lastCurveStr = '';
 threshold = 10;
+showed = false;
 
 while hasFrame(v)
     b = readFrame(v); 
@@ -114,7 +115,10 @@ while hasFrame(v)
         intersectionXcoord = leftRightLineInters(1);
         [bWithShape,lastCurveStr] = putCurveInfoInImage(intersectionXcoord,bWithShape,threshold,w);
     end
-
+    if ~showed
+        imshow(bWithShape);
+        showed = true;
+    end
     writeVideo(outputVideo,bWithShape);
 end
 close(outputVideo);
